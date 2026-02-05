@@ -1,16 +1,25 @@
-# Godot 4+ specific ignores
+# 1. Ignore EVERYTHING in the project root
+*
+
+# 2. Whitelist (Un-ignore) the specific addon folder
+!/addons/
+!/addons/**
+
+# 3. Whitelist essential repo metadata
+!LICENSE
+!README.md
+!.gitignore
+
+# 4. SAFETY NET:
+# Even though we un-ignored "addons/**", we want to make sure 
+# we don't accidentally commit temporary Godot files if they appear there.
 .godot/
-.nomedia
-
-# Godot-specific ignores
-.import/
-export.cfg
-export_credentials.cfg
-
-# Imported translations (automatically generated from CSV files)
 *.translation
+*.uid
 
-# Mono-specific ignores
-.mono/
-data_*/
-mono_crash.*.json
+
+
+
+
+
+
