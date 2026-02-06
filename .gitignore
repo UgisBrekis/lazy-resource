@@ -2,8 +2,7 @@
 *
 
 # 2. Whitelist (Un-ignore) the specific addon folder
-!/addons/
-!/addons/**
+!/addons/lazy_resource/
 
 # 3. Whitelist essential repo metadata
 !LICENSE
