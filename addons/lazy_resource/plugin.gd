@@ -1,7 +1,7 @@
 @tool
 extends EditorPlugin
 
-const LazyPicker = preload("lazy_picker.gd")
+const LazyPicker = preload("picker.gd")
 const LazyEditorProperty = preload("editor_property.gd")
 
 var plugin_instance
