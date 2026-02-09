@@ -1,67 +1,72 @@
 @tool
 extends EditorPlugin
 
-const LazyPicker = preload("picker.gd")
-const LazyEditorProperty = preload("editor_property.gd")
+const LazyInspectorPlugin = preload("inspector_plugin.gd")
 
-var plugin_instance
+var _inspector_plugin : LazyInspectorPlugin
+
+var _class_cache: Dictionary[String, String]
+
 
 func _enter_tree():
-	plugin_instance = LazyInspectorPlugin.new()
-	add_inspector_plugin(plugin_instance)
+	var file_system := EditorInterface.get_resource_filesystem()
+	if not file_system.filesystem_changed.is_connected(_update_class_cache):
+		file_system.filesystem_changed.connect(_update_class_cache)
+		
+	_inspector_plugin = LazyInspectorPlugin.new()
+	add_inspector_plugin(_inspector_plugin)
+	
+	_update_class_cache()
+
 
 func _exit_tree():
-	remove_inspector_plugin(plugin_instance)
+	var file_system := EditorInterface.get_resource_filesystem()
+	if file_system.filesystem_changed.is_connected(_update_class_cache):
+		file_system.filesystem_changed.disconnect(_update_class_cache)
+	
+	remove_inspector_plugin(_inspector_plugin)
+	_inspector_plugin = null
 
 
-# --- The Inspector Hook ---
-class LazyInspectorPlugin extends EditorInspectorPlugin:
-	func _can_handle(object):
-		return true
+func _update_class_cache() -> void:
+	_class_cache.clear()
+	
+	var global_class_list := ProjectSettings.get_global_class_list()
+	
+	# Build an inheritance map { "MyClass": "ParentClass" }
+	# This allows us to walk up the tree instantly.
+	var inheritance_map: Dictionary[String, String] = {}
+	
+	for data in global_class_list:
+		inheritance_map[data.class] = data.base
 
-	func _parse_property(object, type, name, hint_type, hint_string, usage_flags, wide):
-		# Fix: We check our custom helper instead of ClassDB
-		if type == TYPE_OBJECT and _is_lazy_resource(hint_string):    
-			var restricted_type = "Resource"
-			var script_path = _get_path_for_class(hint_string)
-			if script_path:
-				var script = load(script_path)
-				if script and script.has_method("get_lazy_type"):
-					restricted_type = script.get_lazy_type()
+	# Only keep classes that inherit from LazyResource
+	for data in global_class_list:
+		var global_class_name := data.class as String
+		
+		if global_class_name == "LazyResource":
+			_class_cache[global_class_name] = data.path
+			continue
 
-			add_property_editor(name, LazyEditorProperty.new(restricted_type, hint_string))
-			return true
-		return false
-
-	# --- NEW HELPER FUNCTION ---
-	func _is_lazy_resource(class_name_str: String) -> bool:
-		# 1. Is it the base class itself?
-		if class_name_str == "LazyResource": 
-			return true
-
-		# 2. Look up the script path for this class name
-		var path = _get_path_for_class(class_name_str)
-		if path == "": 
-			return false
+		# Check ancestors until we hit LazyResource or run out
+		var candidate := global_class_name
+		var is_lazy := false
+		
+		while candidate in inheritance_map:
+			var parent := inheritance_map[candidate]
 			
-		var script = load(path)
-		if not script: 
-			return false
-
-		# 3. Walk up the inheritance chain
-		# We loop through parent scripts until we hit the top or find "LazyResource"
-		var current_script = script
-		while current_script:
-			if current_script.get_global_name() == "LazyResource":
-				return true
-			current_script = current_script.get_base_script()
+			if parent == "LazyResource":
+				is_lazy = true
+				break
 			
-		return false
+			candidate = parent
+		
+		if is_lazy:
+			_class_cache[global_class_name] = data.path
 
-	func _get_path_for_class(class_name_str: String) -> String:
-		for data in ProjectSettings.get_global_class_list():
-			if data["class"] == class_name_str:
-				return data["path"]
-		return ""
+	if not _inspector_plugin:
+		return
+	
+	_inspector_plugin.set_class_cache(_class_cache)
 	
 	
