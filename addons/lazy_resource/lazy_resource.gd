@@ -7,22 +7,28 @@ class_name LazyResource extends Resource
 ## Override this in a subclass (e.g. LazyScene) to restrict the allowed type.
 static func get_lazy_type() -> String:
 	return "Resource"
-
-
+	
+	
+func get_uid() -> int:
+	return _uid
+	
+	
+func set_uid(uid: int) -> void:
+	_uid = uid
+	emit_changed()
+	
+	
 ## Called by the plugin when you drop a resource.
 func set_target(resource: Resource) -> void:
 	if resource:
 		var path := resource.resource_path
-		
 		if not path.is_empty():
-			_uid = ResourceLoader.get_resource_uid(path)
+			set_uid(ResourceLoader.get_resource_uid(path)) # Use internal method
 		else:
-			push_warning("LazyResource: Resource has no path. Cannot lazy load.")
+			push_warning("LazyResource: Resource has no path.")
 			_uid = -1
 	else:
 		_uid = -1
-	
-	emit_changed()
 
 
 ## Load the resource immediately on the main thread and return it. Will freeze game for large assets.
@@ -72,7 +78,3 @@ func get_load_progress() -> float:
 		return progress[0]
 	
 	return 0.0
-
-
-func get_uid() -> int:
-	return _uid

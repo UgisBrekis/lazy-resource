@@ -6,30 +6,33 @@ var _main_btn: Button
 var _quick_load_btn: Button
 
 var _accepted_type: String = "Resource"
+var _inheritance_map : Dictionary[String, String]
 var _icon_cache : Dictionary[String, Texture2D]
 var _current_path: String = ""
 
 
-func _init(accepted_type: String, icon_cache : Dictionary[String, Texture2D]):
+func _init(accepted_type: String,
+		inheritance_map : Dictionary[String, String],
+		icon_cache : Dictionary[String, Texture2D]):
+	
 	_accepted_type = accepted_type
+	_inheritance_map = inheritance_map
 	_icon_cache = icon_cache
 	
-	# 1. SETUP CONTAINER
 	_container = HBoxContainer.new()
 	_container.add_theme_constant_override("separation", 0)
 	_container.size_flags_horizontal = SIZE_EXPAND_FILL # Fill available space
 	add_child(_container)
 	
-	# 2. SETUP MAIN BUTTON
 	_main_btn = Button.new()
 	_main_btn.size_flags_horizontal = SIZE_EXPAND_FILL
 	_main_btn.clip_text = true
 	_main_btn.custom_minimum_size.y = 28
+	_main_btn.set_drag_forwarding(Callable(), _can_drop_data, _drop_data)
 	
 	_main_btn.pressed.connect(_on_main_btn_pressed)
 	_container.add_child(_main_btn)
 	
-	# 3. SETUP QUICK LOAD BUTTON
 	_quick_load_btn = Button.new()
 	_quick_load_btn.custom_minimum_size.x = 28
 	_quick_load_btn.flat = false
@@ -43,7 +46,6 @@ func _ready():
 	_main_btn.add_theme_stylebox_override("hover", style_bg)
 	_main_btn.add_theme_stylebox_override("pressed", style_bg)
 	
-	# Quick Button: Use standard flat inspector button styles
 	var style_normal := get_theme_stylebox("normal", "EditorInspectorFlatButton")
 	var style_hover := get_theme_stylebox("hover", "EditorInspectorFlatButton")
 	var style_pressed := get_theme_stylebox("pressed", "EditorInspectorFlatButton")
@@ -137,38 +139,67 @@ func _on_quick_open_selected(path: String) -> void:
 	if path.is_empty():
 		return
 	
-	var resource := load(path) as Resource
-	_apply_resource(resource)
-
-
-func _apply_resource(resource: Resource) -> void:
-	if not resource:
-		emit_changed(get_edited_property(), null)
-		return
+	var uid := ResourceLoader.get_resource_uid(path)
+	_apply_lazy_uid(uid)
 	
-	if resource is LazyResource:
-		emit_changed(get_edited_property(), resource)
+	
+func _validate_path_type(path: String) -> bool:
+	if _accepted_type == "Resource":
+		return true
+	
+	var file_type := EditorInterface.get_resource_filesystem().get_file_type(path)
+
+	if file_type.is_empty():
+		return false
+	
+	if file_type == _accepted_type:
+		return true
+	
+	if ClassDB.class_exists(file_type) and ClassDB.is_parent_class(file_type, _accepted_type):
+		return true
+	
+	var current_type := file_type
+	while _inheritance_map.has(current_type):
+		var parent_type := _inheritance_map[current_type]
+		
+		if parent_type == _accepted_type:
+			return true
+		
+		current_type = parent_type
+	
+	return false
+	
+	
+func _apply_lazy_uid(uid: int) -> void:
+	var current_obj := get_edited_object()[get_edited_property()] as LazyResource
+	
+	if current_obj:
+		current_obj.set_uid(uid)
+		emit_changed(get_edited_property(), current_obj)
 		return
 	
 	var lazy_resource := LazyResource.new()
-	lazy_resource.set_target(resource)
-	lazy_resource.resource_local_to_scene = true 
+	lazy_resource.set_uid(uid)
+	lazy_resource.resource_local_to_scene = true
 	emit_changed(get_edited_property(), lazy_resource)
-
 
 
 #region Drag and drop
 func _can_drop_data(at_position: Vector2, data: Variant) -> bool:
-	if data.has("type") and data.type == "files":
-		return true 
-	return false
-
-
+	if not data.has("type") or data.type != "files" or data.files.size() == 0:
+		return false
+	
+	return _validate_path_type(data.files[0])
+	
+	
 func _drop_data(at_position: Vector2, data: Variant) -> void:
 	var path := data.files[0] as String
-	var res = load(path)
-	if res.is_class(_accepted_type) or _accepted_type == "Resource":
-		_apply_resource(res)
+	
+	if not _validate_path_type(path):
+		return
+	
+	var uid := ResourceLoader.get_resource_uid(path)
+	_apply_lazy_uid(uid)
 #endregion
 
 

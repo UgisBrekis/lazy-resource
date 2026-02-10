@@ -5,7 +5,8 @@ const LazyInspectorPlugin = preload("inspector_plugin.gd")
 
 var _inspector_plugin : LazyInspectorPlugin
 
-var _class_cache: Dictionary[String, String]
+var _inheritance_map: Dictionary[String, String] = {}
+var _class_cache: Dictionary[String, String] = {}
 
 
 func _enter_tree():
@@ -14,6 +15,8 @@ func _enter_tree():
 		file_system.filesystem_changed.connect(_update_class_cache)
 		
 	_inspector_plugin = LazyInspectorPlugin.new()
+	_inspector_plugin.inheritance_map = _inheritance_map
+	
 	add_inspector_plugin(_inspector_plugin)
 	
 	_update_class_cache()
@@ -29,16 +32,13 @@ func _exit_tree():
 
 
 func _update_class_cache() -> void:
+	_inheritance_map.clear()
 	_class_cache.clear()
 	
 	var global_class_list := ProjectSettings.get_global_class_list()
 	
-	# Build an inheritance map { "MyClass": "ParentClass" }
-	# This allows us to walk up the tree instantly.
-	var inheritance_map: Dictionary[String, String] = {}
-	
 	for data in global_class_list:
-		inheritance_map[data.class] = data.base
+		_inheritance_map[data.class] = data.base
 
 	# Only keep classes that inherit from LazyResource
 	for data in global_class_list:
@@ -52,8 +52,8 @@ func _update_class_cache() -> void:
 		var candidate := global_class_name
 		var is_lazy := false
 		
-		while candidate in inheritance_map:
-			var parent := inheritance_map[candidate]
+		while candidate in _inheritance_map:
+			var parent := _inheritance_map[candidate]
 			
 			if parent == "LazyResource":
 				is_lazy = true
