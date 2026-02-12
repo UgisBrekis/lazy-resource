@@ -14,7 +14,7 @@ The common solution is to export a `String` (file path) or a `UID`.
 
 The Pro: It’s incredibly lightweight.
 
-The Con: It’s a workflow killer. You lose the drag-and-drop experience, you lose type safety, and you end up "hardcoding" paths that break when files move. It feels like a step backward into the dark.
+The Con: It’s a workflow killer. You lose the drag-and-drop experience, you lose type safety, and you end up "hardcoding" paths that break when files move. Paths don't break if you use UID, but good luck telling if you have the right resource referenced in your code by looking at the UID. That is not a great experience you're having right there.
 
 
 ### 💡 The Solution: LazyResource
