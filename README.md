@@ -36,6 +36,12 @@ The Con: It’s a workflow killer. You lose the drag-and-drop experience, you lo
 ## 🚀 Usage
 ### 1. Basic Usage
 Use the `LazyResource` type in your scripts. The inspector will show a custom picker.
+
+* Click on editor property when prompted to assign the Resource to assign Resource(it will store only UID).
+* Click on editor property when Resource is already assigned to select it in the Editor File System(helpful to validate if the right Resource is assigned).
+* Resource can be re-assigned with Quick Load button.
+* Broken UIDs will be highlighted with the error color for you to easily see where things have gone wrong.
+
 ``` GDScript
 extends Node
 
