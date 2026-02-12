@@ -1,12 +1,30 @@
 # Lazy Resource
 Efficient lazy loading for `Godot 4.x`. Reference resources without loading them into memory until you actually need them.
 
+## ❔ Why Do I Need this?
+### 🤔 The Problem Statement
+In Godot, the standard way to reference a resource is via `@export var my_resource: Resource`. It’s fast, it’s visual, and you get a nice picker in the Inspector.
 
-Godot Lazy Resource is a plugin that introduces a `LazyResource` wrapper. It allows you to assign any Resource(Scenes, Textures, Audio, etc.) in the inspector without triggering a load operation. This is essential for:
+The Caveat: These are Hard References. When you load a scene containing that script, Godot is forced to load every single resource assigned in the Inspector into RAM immediately.
+* Inventory Systems: 1,000 items in a database? Your game just loaded 1,000 textures on startup.
+* Level Management: Want to reference "Level 2" from "Level 1"? Level 2 is now sitting in memory while you're still playing the first level.
 
-* Inventory Systems: Reference 1000 items without loading 1000 textures.
-* Level Management: Store references to "Level 2" without loading it into RAM while playing Level 1.
-* Soft References: A Godot implementation of Unreal's TSoftObjectPtr or Unity's Addressables.
+### 🤓 The Usual Workaround (and why it's not enough)
+The common solution is to export a `String` (file path) or a `UID`.
+
+The Pro: It’s incredibly lightweight.
+
+The Con: It’s a workflow killer. You lose the drag-and-drop experience, you lose type safety, and you end up "hardcoding" paths that break when files move. It feels like a step backward into the dark.
+
+
+### 💡 The Solution: LazyResource
+`LazyResource` merges both approaches into a single, seamless workflow. It acts as a lightweight wrapper that stores a `UID` instead of a hard reference.
+
+* ⚡ Lightweight: Avoids loading resources into memory until you explicitly ask for them.
+
+* 🎨 Editor-First: Provides a custom Inspector experience that feels like native Godot—drag, drop, and browse with full type-safety.
+
+* 🧵 Threaded by Default: Includes a built-in, non-blocking loading implementation so you don't have to write your own background-thread logic.
 
 
 ## 📦 Installation
@@ -27,7 +45,7 @@ extends Node
 
 func _on_portal_entered():
     # Load it when you actually need it
-    var scene = await next_level.load_resource_threaded()
+    var scene := await next_level.load_resource_threaded() as PackedScene
     get_tree().change_scene_to_packed(scene)
 ```
 
@@ -53,17 +71,16 @@ Use it in your code:
 ``` GDScript
 extends Node2D
 
-@export var my_resource : LazyResource
+@export var my_resource: LazyResource
 
 func _ready() -> void:
 	my_resource.started_loading.connect(func():
 		while my_resource.get_load_progress() < 1.0:
 			var progress := my_resource.get_load_progress()
-			print(progress * 100.0, "%")
 			await get_tree().process_frame
 		
 		var packed_scene := my_resource.load_resource() as PackedScene
-		var node = packed_scene.instantiate()
+		var node := packed_scene.instantiate() as Node
 		add_child(node)
 		)
 	
